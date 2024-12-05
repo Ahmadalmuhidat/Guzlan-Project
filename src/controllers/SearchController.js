@@ -1,4 +1,34 @@
 const axios = require("axios");
+const SpotifyWebApi = require('spotify-web-api-node');
+
+
+
+async function getSpotifyToken() {
+  try {
+    const clientId = '557033fd59ff435db40f9cdc5d6fa646';
+    const clientSecret = '11de02289a64434195c5daa02419cb4f';
+
+    const response = await axios.post('https://accounts.spotify.com/api/token', null, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      params: {
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+      },
+    });
+
+  
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Error fetching Spotify token:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+
+
 
 exports.search = async (req, res) => {
   try {
@@ -20,6 +50,7 @@ exports.search = async (req, res) => {
     const response = await axios.get(url);
     const data = response.data;
     res.json(data);
+    console.log(response.data);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ error: "Failed to fetch data from SerpAPI" });
@@ -54,26 +85,17 @@ exports.searchImages = async (req, res) => {
 
 exports.searchTracks = async (req, res) => {
   try {
-    const query = req.query.q || "pop";
+    const query = req.query.q || "pop"; 
     const limit = req.query.limit || 10;
-
-    const clientId = process.env.JAMENDO_API_KEY;
-    const url = `https://api.jamendo.com/v3.0/tracks?client_id=${clientId}&format=json&limit=${limit}&search=${encodeURIComponent(
-      query
-    )}`;
-
-    const response = await axios.get(url);
-    const tracks = response.data.results.map((track) => ({
-      id: track.id,
-      name: track.name,
-      artist: track.artist_name,
-      album: track.album_name,
-      stream: track.audio,
-    }));
-
-    res.json({ tracks });
+    const token = await getSpotifyToken()
+    var spotifyApi = new SpotifyWebApi();
+    spotifyApi.setAccessToken(token);
+    var songs = spotifyApi.searchTracks(query);
+    songs.then(function(data){
+      res.json({data : data.body.tracks.items});
+    })
   } catch (error) {
     console.error("Error fetching tracks:", error.message);
     res.status(500).json({ error: "Failed to fetch music tracks." });
   }
-}
+};
